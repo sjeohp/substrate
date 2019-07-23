@@ -867,9 +867,21 @@ macro_rules! decl_module {
 		$vis fn $name(
 			$origin: $origin_ty $(, $param: $param_ty )*
 		) -> $crate::dispatch::Result {
-			{ $( $impl )* }
-			// May be unreachable.
-			Ok(())
+			#[cfg(feature = "std")]
+			let before = std::time::Instant::now();
+
+			let result = (move || { { $( $impl )* } Ok(()) })();
+
+			#[cfg(feature = "std")]
+			{
+				let after = std::time::Instant::now();
+				$crate::telemetry::telemetry!($crate::telemetry::RUNTIME_DEBUG; "runtime.profiling";
+					"mod" => stringify!($module),
+					"fn" => stringify!($name),
+					"time_ns" => (after - before).as_nanos()
+				);
+			}
+			result
 		}
 	};
 
@@ -885,7 +897,21 @@ macro_rules! decl_module {
 	) => {
 		$(#[doc = $doc_attr])*
 		$vis fn $name($origin: $origin_ty $(, $param: $param_ty )* ) -> $result {
-			$( $impl )*
+			#[cfg(feature = "std")]
+			let before = std::time::Instant::now();
+
+			let result = (move || { $( $impl )* })();
+
+			#[cfg(feature = "std")]
+			{
+				let after = std::time::Instant::now();
+				$crate::telemetry::telemetry!($crate::telemetry::RUNTIME_DEBUG; "runtime.profiling";
+					"mod" => stringify!($module),
+					"fn" => stringify!($name),
+					"time_ns" => (after - before).as_nanos()
+				);
+			}
+			result
 		}
 	};
 
@@ -1485,7 +1511,7 @@ macro_rules! __call_to_functions {
 /// Convert a list of functions into a list of `FunctionMetadata` items.
 #[macro_export]
 #[doc(hidden)]
-macro_rules! __functions_to_metadata{
+macro_rules! __functions_to_metadata {
 	(
 		$fn_id:expr;
 		$origin_type:ty;
@@ -1594,6 +1620,7 @@ macro_rules! __check_reserved_fn_name {
 // Do not complain about unused `dispatch` and `dispatch_aux`.
 #[allow(dead_code)]
 mod tests {
+
 	use super::*;
 	use crate::sr_primitives::traits::{OnInitialize, OnFinalize};
 	use sr_primitives::weights::{DispatchInfo, DispatchClass};
