@@ -24,7 +24,11 @@ use crate::RuntimeInfo;
 use primitives::{Blake2Hasher, NativeOrEncoded};
 use log::trace;
 
+use std::time::Instant;
+
 use crate::RuntimesCache;
+
+use substrate_telemetry::{telemetry, PROFILING};
 
 thread_local! {
 	static RUNTIMES_CACHE: RefCell<RuntimesCache> = RefCell::new(RuntimesCache::new());
@@ -129,7 +133,8 @@ impl<D: NativeExecutionDispatch> CodeExecutor<Blake2Hasher> for NativeExecutor<D
 		use_native: bool,
 		native_call: Option<NC>,
 	) -> (Result<NativeOrEncoded<R>>, bool){
-		RUNTIMES_CACHE.with(|cache| {
+		let before = Instant::now();
+		let result = RUNTIMES_CACHE.with(|cache| {
 			let cache = &mut cache.borrow_mut();
 			let cached_runtime = match cache.fetch_runtime(
 				&self.fallback, ext, self.default_heap_pages,
@@ -198,7 +203,15 @@ impl<D: NativeExecutionDispatch> CodeExecutor<Blake2Hasher> for NativeExecutor<D
 					(D::dispatch(ext, method, data).map(NativeOrEncoded::Encoded), true)
 				}
 			}
-		})
+		});
+
+		let ns = (Instant::now() - before).as_nanos();
+		telemetry!(PROFILING; "profiling.native_call";
+					"ns" => ns,
+					"method" => method,
+					"is_ok" => result.0.is_ok()
+				);
+		result
 	}
 }
 

@@ -875,10 +875,12 @@ macro_rules! decl_module {
 			#[cfg(feature = "std")]
 			{
 				let after = std::time::Instant::now();
-				$crate::telemetry::telemetry!($crate::telemetry::RUNTIME_DEBUG; "runtime.profiling";
+				let ns = (after - before).as_nanos();
+				$crate::telemetry::telemetry!($crate::telemetry::PROFILING; "profiling.runtime";
 					"mod" => stringify!($module),
 					"fn" => stringify!($name),
-					"time_ns" => (after - before).as_nanos()
+					"ns" => ns,
+					"is_ok" => result.is_ok()
 				);
 			}
 			result
@@ -905,10 +907,12 @@ macro_rules! decl_module {
 			#[cfg(feature = "std")]
 			{
 				let after = std::time::Instant::now();
-				$crate::telemetry::telemetry!($crate::telemetry::RUNTIME_DEBUG; "runtime.profiling";
+				let ns = (after - before).as_nanos();
+				$crate::telemetry::telemetry!($crate::telemetry::PROFILING; "profiling.runtime";
 					"mod" => stringify!($module),
 					"fn" => stringify!($name),
-					"time_ns" => (after - before).as_nanos()
+					"ns" => ns,
+					"is_ok" => result.is_ok()
 				);
 			}
 			result

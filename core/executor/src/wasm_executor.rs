@@ -19,6 +19,7 @@
 use std::{collections::HashMap, convert::TryFrom, str};
 use tiny_keccak;
 use secp256k1;
+use std::time::Instant;
 
 use wasmi::{
 	Module, ModuleInstance, MemoryInstance, MemoryRef, TableRef, ImportsBuilder, ModuleRef,
@@ -36,6 +37,8 @@ use trie::{TrieConfiguration, trie_types::Layout};
 use crate::sandbox;
 use crate::allocator;
 use log::trace;
+
+use substrate_telemetry::{telemetry, PROFILING};
 
 #[cfg(feature="wasm-extern-trace")]
 macro_rules! debug_trace {
@@ -1342,7 +1345,8 @@ impl WasmExecutor {
 		method: &str,
 		data: &[u8],
 	) -> Result<Vec<u8>> {
-		self.call_in_wasm_module_with_custom_signature(
+		let before = Instant::now();
+		let result = self.call_in_wasm_module_with_custom_signature(
 			ext,
 			module_instance,
 			method,
@@ -1359,7 +1363,14 @@ impl WasmExecutor {
 					Ok(None)
 				}
 			}
-		)
+		);
+		let ns = (Instant::now() - before).as_nanos();
+		telemetry!(PROFILING; "profiling.wasm_call";
+					"ns" => ns,
+					"method" => method,
+					"is_ok" => result.is_ok()
+				);
+		result
 	}
 
 	/// Call a given method in the given wasm-module runtime.
