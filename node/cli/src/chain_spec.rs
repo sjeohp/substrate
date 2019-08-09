@@ -271,11 +271,13 @@ pub fn testnet_genesis(
 		}),
 		democracy: Some(DemocracyConfig::default()),
 		collective_Instance1: Some(CouncilConfig {
-			members: vec![],
+			// Put Alice on the council
+			members: vec![get_from_seed::<AccountId>("Alice")],
 			phantom: Default::default(),
 		}),
 		collective_Instance2: Some(TechnicalCommitteeConfig {
-			members: vec![],
+			// Put Bob on the technical committee
+			members: vec![get_from_seed::<AccountId>("Bob")],
 			phantom: Default::default(),
 		}),
 		elections: Some(ElectionsConfig {
@@ -392,5 +394,15 @@ pub(crate) mod tests {
 	#[ignore]
 	fn test_connectivity() {
 		service_test::connectivity::<Factory>(integration_test_config_with_two_authorities());
+	}
+
+	#[test]
+	fn council_techcommittee_different_genesis() {
+        use node_runtime::BuildStorage;
+		let c = development_config_genesis();
+		let mut s = c.build_storage().unwrap();
+		sr_io::with_storage(&mut s, || {
+			assert_ne!(node_runtime::TechnicalCommittee::members(), node_runtime::Council::members());
+		});
 	}
 }
