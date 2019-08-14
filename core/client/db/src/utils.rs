@@ -17,13 +17,16 @@
 //! Db-based backend utility structures and functions, used by both
 //! full and light storages.
 
-#[cfg(feature = "kvdb-rocksdb")]
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
 use std::{io, convert::TryInto};
 
-use kvdb::{KeyValueDB, DBTransaction};
-#[cfg(feature = "kvdb-rocksdb")]
+#[cfg(not(target_arch = "wasm32"))]
 use kvdb_rocksdb::{Database, DatabaseConfig};
+#[cfg(target_arch = "wasm32")]
+use kvdb_web::{Database, DatabaseConfig};
+
+use kvdb::{KeyValueDB, DBTransaction};
 use log::debug;
 
 use client;
@@ -34,7 +37,7 @@ use sr_primitives::traits::{
 	Block as BlockT, Header as HeaderT, Zero,
 	UniqueSaturatedFrom, UniqueSaturatedInto,
 };
-#[cfg(feature = "kvdb-rocksdb")]
+#[cfg(not(target_arch = "wasm32"))]
 use crate::DatabaseSettings;
 
 /// Number of columns in the db. Must be the same for both full && light dbs.
@@ -206,7 +209,7 @@ pub fn db_err(err: io::Error) -> client::error::Error {
 }
 
 /// Open RocksDB database.
-#[cfg(feature = "kvdb-rocksdb")]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn open_database(
 	config: &DatabaseSettings,
 	col_meta: Option<u32>,
@@ -233,6 +236,33 @@ pub fn open_database(
 	}
 
 	Ok(Arc::new(db))
+}
+
+/// Open browser database.
+#[cfg(target_arch = "wasm32")]
+pub fn open_database(
+    config: &DatabaseSettings,
+    col_meta: Option<u32>,
+    db_type: &str
+) -> client::error::Result<Arc<dyn KeyValueDB>> {
+        let db = Database::open("db".to_string(), NUM_COLUMNS);
+
+        // check database type
+        match db.get(col_meta, meta_keys::TYPE).map_err(db_err)? {
+                Some(stored_type) => {
+                        if db_type.as_bytes() != &*stored_type {
+                                return Err(client::error::Error::Backend(
+                                        format!("Unexpected database type. Expected: {}", db_type)).into());
+                        }
+                },
+                None => {
+                        let mut transaction = DBTransaction::new();
+                        transaction.put(col_meta, meta_keys::TYPE, db_type.as_bytes());
+                        db.write(transaction).map_err(db_err)?;
+                },
+        }
+        
+        Ok(db as Arc<_>)
 }
 
 /// Read database column entry for the given block.

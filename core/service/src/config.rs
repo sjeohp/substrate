@@ -17,7 +17,7 @@
 //! Service configuration.
 
 pub use client::ExecutionStrategies;
-pub use client_db::PruningMode;
+pub use client_db::{PruningMode, StorageType};
 pub use network::config::{ExtTransport, NetworkConfiguration, Roles};
 
 use std::{path::PathBuf, net::SocketAddr};
@@ -92,6 +92,8 @@ pub struct Configuration<C, G: Serialize + DeserializeOwned + BuildStorage> {
 	pub grandpa_voter: bool,
 	/// Node keystore's password
 	pub password: Protected<String>,
+        /// Storage type
+        pub storage_type: StorageType,
 }
 
 impl<C: Default, G: Serialize + DeserializeOwned + BuildStorage> Configuration<C, G> {
@@ -127,6 +129,7 @@ impl<C: Default, G: Serialize + DeserializeOwned + BuildStorage> Configuration<C
 			disable_grandpa: false,
 			grandpa_voter: false,
 			password: "".to_string().into(),
+                        storage_type: StorageType::Persistent,
 		};
 		configuration.network.boot_nodes = configuration.chain_spec.boot_nodes().to_vec();
 

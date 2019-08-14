@@ -26,6 +26,7 @@ pub mod error;
 pub mod informant;
 
 use client::ExecutionStrategies;
+use client_db::StorageType;
 use service::{
 	ServiceFactory, FactoryFullConfiguration, RuntimeGenesis,
 	FactoryGenesis, PruningMode, ChainSpec,

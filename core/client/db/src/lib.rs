@@ -175,6 +175,15 @@ impl<B: BlockT> StateBackend<Blake2Hasher> for RefTrackingState<B> {
 	}
 }
 
+/// Database storage type.
+#[derive(Clone, Copy)]
+pub enum StorageType {
+	/// Use RocksDB or browser local-storage (depending on the platform).
+	Persistent,
+	/// Use an in-memory database.
+	InMemory,
+}
+
 /// Database settings.
 pub struct DatabaseSettings {
 	/// Cache size in bytes. If `None` default is used.
@@ -187,6 +196,8 @@ pub struct DatabaseSettings {
 	pub path: PathBuf,
 	/// Pruning mode.
 	pub pruning: PruningMode,
+	/// Storage type.
+	pub storage_type: StorageType,
 }
 
 /// Create an instance of db-backed client.
@@ -705,13 +716,15 @@ impl<Block: BlockT<Hash=H256>> Backend<Block> {
 	}
 
 	fn new_inner(config: DatabaseSettings, canonicalization_delay: u64) -> Result<Self, client::error::Error> {
-		#[cfg(feature = "kvdb-rocksdb")]
-		let db = crate::utils::open_database(&config, columns::META, "full")?;
-		#[cfg(not(feature = "kvdb-rocksdb"))]
-		let db = {
-			log::warn!("Running without the RocksDB feature. The database will NOT be saved.");
-			Arc::new(kvdb_memorydb::create(crate::utils::NUM_COLUMNS))
-		};
+                let db = match config.storage_type {
+                        StorageType::Persistent => {
+                                crate::utils::open_database(&config, columns::META, "full")?
+                        },
+                        StorageType::InMemory => {
+                                log::warn!("Running without the RocksDB feature. The database will NOT be saved.");
+                                Arc::new(kvdb_memorydb::create(crate::utils::NUM_COLUMNS))
+                        },
+                };
 		Self::from_kvdb(db as Arc<_>, canonicalization_delay, &config)
 	}
 
@@ -732,6 +745,7 @@ impl<Block: BlockT<Hash=H256>> Backend<Block> {
 			state_cache_child_ratio: Some((50, 100)),
 			path: Default::default(),
 			pruning: PruningMode::keep_blocks(keep_blocks),
+                        storage_type: StorageType::InMemory,
 		};
 		Self::from_kvdb(
 			db,
