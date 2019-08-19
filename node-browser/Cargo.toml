@@ -31,7 +31,7 @@ sr-primitives = { path = "../core/sr-primitives" }
 babe = { package = "substrate-consensus-babe", path = "../core/consensus/babe" }
 babe-primitives = { package = "substrate-consensus-babe-primitives", path = "../core/consensus/babe/primitives" }
 node-executor = { path = "../node/executor" }
-substrate-cli = { package = "substrate-cli", path = "../core/cli" }
+substrate-browser = { package = "substrate-browser", path = "../core/browser" }
 substrate-keystore = { path = "../core/keystore" }
 substrate-telemetry = { package = "substrate-telemetry", path = "../core/telemetry" }
 structopt = "0.2"

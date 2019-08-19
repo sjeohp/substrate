@@ -105,6 +105,7 @@ pub struct Service<Components: components::Components> {
 	_rpc: Box<dyn std::any::Any + Send + Sync>,
 	_telemetry: Option<tel::Telemetry>,
 	_telemetry_on_connect_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<()>>>>,
+        #[cfg(not(target_arch = "wasm32"))]
 	_offchain_workers: Option<Arc<offchain::OffchainWorkers<
 		ComponentClient<Components>,
 		ComponentOffchainStorage<Components>,
@@ -461,6 +462,7 @@ impl<Components: components::Components> Service<Components> {
 			rpc_handlers,
 			_rpc: rpc,
 			_telemetry: telemetry,
+                        #[cfg(not(target_arch = "wasm32"))]
 			_offchain_workers: offchain_workers,
 			_telemetry_on_connect_sinks: telemetry_connection_sinks.clone(),
 			keystore,
@@ -806,6 +808,7 @@ fn start_rpc_servers<C, G, H: FnMut() -> rpc::RpcHandler>(
 
 /// An RPC session. Used to perform in-memory RPC queries (ie. RPC queries that don't go through
 /// the HTTP or WebSockets server).
+#[derive(Clone)]
 pub struct RpcSession {
 	metadata: rpc::Metadata,
 }
