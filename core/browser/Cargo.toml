@@ -1,0 +1,18 @@
+[package]
+name = "substrate-browser"
+version = "2.0.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Substrate browser interface."
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+client = { package = "substrate-client", path = "../../core/client" }
+network = { package = "substrate-network", path = "../../core/network" }
+service = { package = "substrate-service", path = "../../core/service" }
+sr-primitives = { path = "../../core/sr-primitives" }
+futures = "0.1.17"
+futures03 = { package = "futures-preview", version = "0.3.0-alpha.17", features = ["compat"] }
+log = "0.4"
+ansi_term = "0.11"

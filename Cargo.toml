@@ -19,6 +19,7 @@ vergen = "3"
 
 [workspace]
 members = [
+	"core/browser",
 	"core/cli",
 	"core/client",
 	"core/client/db",
@@ -86,6 +87,7 @@ members = [
 	"srml/system",
 	"srml/timestamp",
 	"srml/treasury",
+	"node-browser",
 	"node/cli",
 	"node/executor",
 	"node/primitives",

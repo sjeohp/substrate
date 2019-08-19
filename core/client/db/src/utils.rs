@@ -17,14 +17,13 @@
 //! Db-based backend utility structures and functions, used by both
 //! full and light storages.
 
-#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
 use std::{io, convert::TryInto};
 
 #[cfg(not(target_arch = "wasm32"))]
 use kvdb_rocksdb::{Database, DatabaseConfig};
 #[cfg(target_arch = "wasm32")]
-use kvdb_web::{Database, DatabaseConfig};
+use kvdb_web::{Database};
 
 use kvdb::{KeyValueDB, DBTransaction};
 use log::debug;
@@ -37,7 +36,6 @@ use sr_primitives::traits::{
 	Block as BlockT, Header as HeaderT, Zero,
 	UniqueSaturatedFrom, UniqueSaturatedInto,
 };
-#[cfg(not(target_arch = "wasm32"))]
 use crate::DatabaseSettings;
 
 /// Number of columns in the db. Must be the same for both full && light dbs.

@@ -34,7 +34,7 @@ pub fn start_client(wasm_ext: wasm_ext::ffi::Transport) -> Result<Client, JsValu
 		.map_err(|err| JsValue::from_str(err.description()))
 }
 
-fn start_inner(wasm_ext: wasm_ext::ffi::Transport) -> Result<Client, Box<std::error::Error>> {
+fn start_inner(wasm_ext: wasm_ext::ffi::Transport) -> Result<Client, Box<dyn std::error::Error>> {
 	console_error_panic_hook::set_once();
 	console_log::init_with_level(log::Level::Info);
 
@@ -60,7 +60,7 @@ fn start_inner(wasm_ext: wasm_ext::ffi::Transport) -> Result<Client, Box<std::er
 	let mut service = service::Factory::new_full(config)
 		.map_err(|e| format!("{:?}", e))?;
 
-	let informant = substrate_cli::informant::build(&service);
+	let informant = substrate_browser::informant::build(&service);
 	wasm_bindgen_futures::spawn_local(informant);
 
 	let (rpc_send_tx, mut rpc_send_rx) = mpsc::unbounded::<RpcMessage>();
