@@ -338,8 +338,18 @@ impl<'a> ParseAndPrepareExport<'a> {
 			None => Box::new(stdout()),
 		};
 
+                let db_settings = client_db::DatabaseSettings {
+                       cache_size: config.database_cache_size.map(|u| u as usize),
+                       state_cache_size: config.state_cache_size,
+                       state_cache_child_ratio:
+                               config.state_cache_child_ratio.map(|v| (v, 100)),
+                       path: config.database_path.clone(),
+                       pruning: config.pruning.clone(),
+                };
+		let db = client_db::utils::open_database(&db_settings, client_db::columns::META, if config.roles.is_light() { "light" } else { "full" })?;
+
 		service::chain_ops::export_blocks::<F, _, _>(
-			config, exit.into_exit(), file, from.into(), to.map(Into::into), json
+			db, db_settings, config, exit.into_exit(), file, from.into(), to.map(Into::into), json
 		).map_err(Into::into)
 	}
 }
@@ -377,7 +387,17 @@ impl<'a> ParseAndPrepareImport<'a> {
 			},
 		};
 
-		let fut = service::chain_ops::import_blocks::<F, _, _>(config, exit.into_exit(), file)?;
+                let db_settings = client_db::DatabaseSettings {
+                       cache_size: config.database_cache_size.map(|u| u as usize),
+                       state_cache_size: config.state_cache_size,
+                       state_cache_child_ratio:
+                               config.state_cache_child_ratio.map(|v| (v, 100)),
+                       path: config.database_path.clone(),
+                       pruning: config.pruning.clone(),
+                };
+		let db = client_db::utils::open_database(&db_settings, client_db::columns::META, if config.roles.is_light() { "light" } else { "full" })?;
+
+		let fut = service::chain_ops::import_blocks::<F, _, _>(db, db_settings, config, exit.into_exit(), file)?;
 		tokio::run(fut);
 		Ok(())
 	}
@@ -448,7 +468,18 @@ impl<'a> ParseAndPrepareRevert<'a> {
 		F: ServiceFactory {
 		let config = create_config_with_db_path(spec_factory, &self.params.shared_params, self.version)?;
 		let blocks = self.params.num;
-		Ok(service::chain_ops::revert_chain::<F>(config, blocks.into())?)
+
+                let db_settings = client_db::DatabaseSettings {
+                       cache_size: config.database_cache_size.map(|u| u as usize),
+                       state_cache_size: config.state_cache_size,
+                       state_cache_child_ratio:
+                               config.state_cache_child_ratio.map(|v| (v, 100)),
+                       path: config.database_path.clone(),
+                       pruning: config.pruning.clone(),
+                };
+		let db = client_db::utils::open_database(&db_settings, client_db::columns::META, if config.roles.is_light() { "light" } else { "full" })?;
+
+		Ok(service::chain_ops::revert_chain::<F>(db, db_settings, config, blocks.into())?)
 	}
 }
 

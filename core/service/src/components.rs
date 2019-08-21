@@ -370,10 +370,10 @@ pub trait ServiceFactory: 'static + Sized {
 	) -> Result<Self::SelectChain, error::Error>;
 
 	/// Build full service.
-	fn new_full(config: FactoryFullConfiguration<Self>)
+	fn new_full(db: Arc<dyn kvdb::KeyValueDB>, db_settings: client_db::DatabaseSettings, config: FactoryFullConfiguration<Self>)
 		-> Result<Self::FullService, error::Error>;
 	/// Build light service.
-	fn new_light(config: FactoryFullConfiguration<Self>)
+	fn new_light(db: Arc<dyn kvdb::KeyValueDB>, db_settings: client_db::DatabaseSettings, config: FactoryFullConfiguration<Self>)
 		-> Result<Self::LightService, error::Error>;
 
 	/// ImportQueue for a full client
@@ -434,6 +434,8 @@ pub trait Components: Sized + 'static {
 
 	/// Create client.
 	fn build_client(
+		db: Arc<dyn kvdb::KeyValueDB>,
+		db_settings: client_db::DatabaseSettings,
 		config: &FactoryFullConfiguration<Self::Factory>,
 		executor: CodeExecutor<Self::Factory>,
 		keystore: Option<BareCryptoStorePtr>,
@@ -478,11 +480,13 @@ pub struct FullComponents<Factory: ServiceFactory> {
 impl<Factory: ServiceFactory> FullComponents<Factory> {
 	/// Create new `FullComponents`
 	pub fn new(
+		db: Arc<dyn kvdb::KeyValueDB>,
+		db_settings: client_db::DatabaseSettings,
 		config: FactoryFullConfiguration<Factory>
 	) -> Result<Self, error::Error> {
 		Ok(
 			Self {
-				service: Service::new(config)?,
+				service: Service::new(db, db_settings, config)?,
 			}
 		)
 	}
@@ -532,6 +536,8 @@ impl<Factory: ServiceFactory> Components for FullComponents<Factory> {
 	type SelectChain = Factory::SelectChain;
 
 	fn build_client(
+		db: Arc<dyn kvdb::KeyValueDB>,
+		db_settings: client_db::DatabaseSettings,
 		config: &FactoryFullConfiguration<Factory>,
 		executor: CodeExecutor<Self::Factory>,
 		keystore: Option<BareCryptoStorePtr>,
@@ -540,18 +546,10 @@ impl<Factory: ServiceFactory> Components for FullComponents<Factory> {
 			error::Error,
 		>
 	{
-		let db_settings = client_db::DatabaseSettings {
-			cache_size: config.database_cache_size.map(|u| u as usize),
-			state_cache_size: config.state_cache_size,
-			state_cache_child_ratio:
-				config.state_cache_child_ratio.map(|v| (v, 100)),
-			path: config.database_path.clone(),
-			pruning: config.pruning.clone(),
-		};
-
 		Ok((
 			Arc::new(
 				client_db::new_client(
+					db,
 					db_settings,
 					executor,
 					&config.chain_spec,
@@ -604,11 +602,13 @@ pub struct LightComponents<Factory: ServiceFactory> {
 impl<Factory: ServiceFactory> LightComponents<Factory> {
 	/// Create new `LightComponents`
 	pub fn new(
+		db: Arc<dyn kvdb::KeyValueDB>,
+		db_settings: client_db::DatabaseSettings,
 		config: FactoryFullConfiguration<Factory>,
 	) -> Result<Self, error::Error> {
 		Ok(
 			Self {
-				service: Service::new(config)?,
+				service: Service::new(db, db_settings, config)?,
 			}
 		)
 	}
@@ -658,6 +658,8 @@ impl<Factory: ServiceFactory> Components for LightComponents<Factory> {
 	type SelectChain = Factory::SelectChain;
 
 	fn build_client(
+            	db: Arc<dyn kvdb::KeyValueDB>,
+		db_settings: client_db::DatabaseSettings,
 		config: &FactoryFullConfiguration<Factory>,
 		executor: CodeExecutor<Self::Factory>,
 		_: Option<BareCryptoStorePtr>,
@@ -668,16 +670,7 @@ impl<Factory: ServiceFactory> Components for LightComponents<Factory> {
 				Option<Arc<OnDemand<FactoryBlock<Self::Factory>>>>
 			), error::Error>
 	{
-		let db_settings = client_db::DatabaseSettings {
-			cache_size: None,
-			state_cache_size: config.state_cache_size,
-			state_cache_child_ratio:
-				config.state_cache_child_ratio.map(|v| (v, 100)),
-			path: config.database_path.clone(),
-			pruning: config.pruning.clone(),
-		};
-
-		let db_storage = client_db::light::LightStorage::new(db_settings)?;
+		let db_storage = client_db::light::LightStorage::new(db)?;
 		let light_blockchain = client::light::new_light_blockchain(db_storage);
 		let fetch_checker = Arc::new(
 			client::light::new_fetch_checker(light_blockchain.clone(), executor.clone())

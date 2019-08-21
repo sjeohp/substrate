@@ -47,6 +47,8 @@ use substrate_executor::NativeExecutor;
 use sysinfo::{get_current_pid, ProcessExt, System, SystemExt};
 use tel::{telemetry, SUBSTRATE_INFO};
 
+pub use kvdb::KeyValueDB;
+pub use client_db::DatabaseSettings;
 pub use self::error::Error;
 pub use config::{Configuration, Roles, PruningMode};
 pub use chain_spec::{ChainSpec, Properties};
@@ -105,7 +107,6 @@ pub struct Service<Components: components::Components> {
 	_rpc: Box<dyn std::any::Any + Send + Sync>,
 	_telemetry: Option<tel::Telemetry>,
 	_telemetry_on_connect_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<()>>>>,
-        #[cfg(not(target_arch = "wasm32"))]
 	_offchain_workers: Option<Arc<offchain::OffchainWorkers<
 		ComponentClient<Components>,
 		ComponentOffchainStorage<Components>,
@@ -116,11 +117,15 @@ pub struct Service<Components: components::Components> {
 
 /// Creates bare client without any networking.
 pub fn new_client<Factory: components::ServiceFactory>(
+    	db: Arc<dyn kvdb::KeyValueDB>,
+        db_settings: client_db::DatabaseSettings,
 	config: &FactoryFullConfiguration<Factory>,
 ) -> Result<Arc<ComponentClient<components::FullComponents<Factory>>>, error::Error> {
 	let executor = NativeExecutor::new(config.default_heap_pages);
 
 	components::FullComponents::<Factory>::build_client(
+		db,
+		db_settings,
 		config,
 		executor,
 		None,
@@ -159,6 +164,8 @@ pub struct TelemetryOnConnect {
 impl<Components: components::Components> Service<Components> {
 	/// Creates a new service.
 	pub fn new(
+		db: Arc<dyn kvdb::KeyValueDB>,
+		db_settings: client_db::DatabaseSettings,
 		mut config: FactoryFullConfiguration<Components::Factory>,
 	) -> Result<Self, error::Error> {
 		let (signal, exit) = exit_future::signal();
@@ -172,7 +179,7 @@ impl<Components: components::Components> Service<Components> {
 
 		let keystore = Keystore::open(config.keystore_path.clone(), config.keystore_password.clone())?;
 
-		let (client, on_demand) = Components::build_client(&config, executor, Some(keystore.clone()))?;
+		let (client, on_demand) = Components::build_client(db, db_settings, &config, executor, Some(keystore.clone()))?;
 		let select_chain = Components::build_select_chain(&mut config, client.clone())?;
 
 		let transaction_pool = Arc::new(
@@ -462,7 +469,6 @@ impl<Components: components::Components> Service<Components> {
 			rpc_handlers,
 			_rpc: rpc,
 			_telemetry: telemetry,
-                        #[cfg(not(target_arch = "wasm32"))]
 			_offchain_workers: offchain_workers,
 			_telemetry_on_connect_sinks: telemetry_connection_sinks.clone(),
 			keystore,
@@ -1091,17 +1097,21 @@ macro_rules! construct_service_factory {
 			}
 
 			fn new_light(
+				db: Arc<dyn $crate::KeyValueDB>,
+				db_settings: $crate::DatabaseSettings,
 				config: $crate::FactoryFullConfiguration<Self>
 			) -> $crate::Result<Self::LightService, $crate::Error>
 			{
-				( $( $light_service_init )* ) (config)
+				( $( $light_service_init )* ) (db, db_settings, config)
 			}
 
 			fn new_full(
+				db: Arc<dyn $crate::KeyValueDB>,
+				db_settings: $crate::DatabaseSettings,
 				config: $crate::FactoryFullConfiguration<Self>
 			) -> Result<Self::FullService, $crate::Error>
 			{
-				( $( $full_service_init )* ) (config).and_then(|service| {
+				( $( $full_service_init )* ) (db, db_settings, config).and_then(|service| {
 					($( $authority_setup )*)(service)
 				})
 			}

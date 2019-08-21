@@ -28,10 +28,10 @@
 
 pub mod light;
 pub mod offchain;
+pub mod utils;
 
 mod cache;
 mod storage_cache;
-mod utils;
 
 use std::sync::Arc;
 use std::path::PathBuf;
@@ -192,6 +192,7 @@ pub struct DatabaseSettings {
 
 /// Create an instance of db-backed client.
 pub fn new_client<E, S, Block, RA>(
+	db: Arc<dyn KeyValueDB>,
 	settings: DatabaseSettings,
 	executor: E,
 	genesis_storage: S,
@@ -206,12 +207,12 @@ pub fn new_client<E, S, Block, RA>(
 		E: CodeExecutor<Blake2Hasher> + RuntimeInfo,
 		S: BuildStorage,
 {
-	let backend = Arc::new(Backend::new(settings, CANONICALIZATION_DELAY)?);
+	let backend = Arc::new(Backend::new(db, settings, CANONICALIZATION_DELAY)?);
 	let executor = client::LocalCallExecutor::new(backend.clone(), executor, keystore);
 	Ok(client::Client::new(backend, executor, genesis_storage, execution_strategies)?)
 }
 
-pub(crate) mod columns {
+pub mod columns {
 	pub const META: Option<u32> = crate::utils::COLUMN_META;
 	pub const STATE: Option<u32> = Some(1);
 	pub const STATE_META: Option<u32> = Some(2);
@@ -706,19 +707,8 @@ impl<Block: BlockT<Hash=H256>> Backend<Block> {
 	/// Create a new instance of database backend.
 	///
 	/// The pruning window is how old a block must be before the state is pruned.
-	pub fn new(config: DatabaseSettings, canonicalization_delay: u64) -> client::error::Result<Self> {
-		Self::new_inner(config, canonicalization_delay)
-	}
-
-	fn new_inner(config: DatabaseSettings, canonicalization_delay: u64) -> Result<Self, client::error::Error> {
-		#[cfg(feature = "kvdb-rocksdb")]
-		let db = crate::utils::open_database(&config, columns::META, "full")?;
-		#[cfg(not(feature = "kvdb-rocksdb"))]
-		let db = {
-			log::warn!("Running without the RocksDB feature. The database will NOT be saved.");
-			Arc::new(kvdb_memorydb::create(crate::utils::NUM_COLUMNS))
-		};
-		Self::from_kvdb(db as Arc<_>, canonicalization_delay, &config)
+	pub fn new(db: Arc<dyn KeyValueDB>, config: DatabaseSettings, canonicalization_delay: u64) -> client::error::Result<Self> {
+		Self::from_kvdb(db, canonicalization_delay, &config)
 	}
 
 	/// Create new memory-backed client backend for tests.

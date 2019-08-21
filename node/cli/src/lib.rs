@@ -169,16 +169,38 @@ pub fn run<I, T, E>(args: I, exit: E, version: cli::VersionInfo) -> error::Resul
 			let runtime = RuntimeBuilder::new().name_prefix("main-tokio-").build()
 				.map_err(|e| format!("{:?}", e))?;
 			match config.roles {
-				ServiceRoles::LIGHT => run_until_exit(
-					runtime,
-					service::Factory::new_light(config).map_err(|e| format!("{:?}", e))?,
-					exit
-				),
-				_ => run_until_exit(
-					runtime,
-					service::Factory::new_full(config).map_err(|e| format!("{:?}", e))?,
-					exit
-				),
+				ServiceRoles::LIGHT => {
+					let db_settings = client_db::DatabaseSettings {
+						cache_size: None,
+						state_cache_size: config.state_cache_size,
+						state_cache_child_ratio:
+							config.state_cache_child_ratio.map(|v| (v, 100)),
+						path: config.database_path.clone(),
+						pruning: config.pruning.clone(),
+					};
+					let db = client_db::utils::open_database(&db_settings, client_db::columns::META, "light").map_err(|e| format!("{:?}", e))?;
+					run_until_exit(
+						runtime,
+						service::Factory::new_light(db, db_settings, config).map_err(|e| format!("{:?}", e))?,
+						exit
+					)
+				},
+				_ => {
+					let db_settings = client_db::DatabaseSettings {
+						cache_size: config.database_cache_size.map(|u| u as usize),
+						state_cache_size: config.state_cache_size,
+						state_cache_child_ratio:
+							config.state_cache_child_ratio.map(|v| (v, 100)),
+						path: config.database_path.clone(),
+						pruning: config.pruning.clone(),
+					};
+					let db = client_db::utils::open_database(&db_settings, client_db::columns::META, "full").map_err(|e| format!("{:?}", e))?;
+					run_until_exit(
+						runtime,
+						service::Factory::new_full(db, db_settings, config).map_err(|e| format!("{:?}", e))?,
+						exit
+					)
+				},
 			}.map_err(|e| format!("{:?}", e))
 		}),
 		ParseAndPrepare::BuildSpec(cmd) => cmd.run(load_spec),
@@ -209,9 +231,21 @@ pub fn run<I, T, E>(args: I, exit: E, version: cli::VersionInfo) -> error::Resul
 				cli_args.num,
 				cli_args.rounds,
 			);
+
+			let db_settings = client_db::DatabaseSettings {
+				cache_size: config.database_cache_size.map(|u| u as usize),
+				state_cache_size: config.state_cache_size,
+				state_cache_child_ratio:
+					config.state_cache_child_ratio.map(|v| (v, 100)),
+				path: config.database_path.clone(),
+				pruning: config.pruning.clone(),
+			};
+			let db = client_db::utils::open_database(&db_settings, client_db::columns::META, "full")?;
 			transaction_factory::factory::<service::Factory, FactoryState<_>>(
 				factory_state,
 				config,
+				db,
+				db_settings,
 			).map_err(|e| format!("Error in transaction factory: {}", e))?;
 
 			Ok(())

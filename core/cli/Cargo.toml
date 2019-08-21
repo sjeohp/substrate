@@ -24,6 +24,7 @@ exit-future = "0.1"
 serde_json = "1.0"
 panic-handler = { package = "substrate-panic-handler", path = "../../core/panic-handler" }
 client = { package = "substrate-client", path = "../../core/client" }
+client_db = { package = "substrate-client-db", path = "../../core/client/db" }
 network = { package = "substrate-network", path = "../../core/network" }
 sr-primitives = { path = "../../core/sr-primitives" }
 primitives = { package = "substrate-primitives", path = "../../core/primitives" }
@@ -34,6 +35,9 @@ keyring = { package = "substrate-keyring", path = "../keyring" }
 names = "0.11.0"
 structopt = "0.2"
 rpassword = "3.0"
+kvdb = { git = "https://github.com/paritytech/parity-common", rev="953c757737a689c8210055160048cf36661a6347" }
+# FIXME replace with release as soon as our rocksdb changes are released upstream https://github.com/paritytech/parity-common/issues/88
+kvdb-rocksdb = { git = "https://github.com/paritytech/parity-common", rev="953c757737a689c8210055160048cf36661a6347" }
 
 [dev-dependencies]
 tempdir = "0.3"

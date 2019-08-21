@@ -57,7 +57,17 @@ fn start_inner(wasm_ext: wasm_ext::ffi::Transport) -> Result<Client, Box<dyn std
 	info!("Node name: {}", config.name);
 	info!("Roles: {:?}", config.roles);
 
-	let mut service = service::Factory::new_light(config)
+        let db_settings = client_db::DatabaseSettings {
+               cache_size: None,
+               state_cache_size: config.state_cache_size,
+               state_cache_child_ratio:
+                       config.state_cache_child_ratio.map(|v| (v, 100)),
+               path: config.database_path.clone(),
+               pruning: config.pruning.clone(),
+        };
+        let db = client_db::utils::open_database(&db_settings, client_db::columns::META, if config.roles.is_light() { "light" } else { "full" })?;
+
+	let mut service = service::Factory::new_light(db, db_settings, config)
 		.map_err(|e| format!("{:?}", e))?;
 
 	let informant = substrate_browser::informant::build(&service);

@@ -98,6 +98,8 @@ pub trait RuntimeAdapter {
 pub fn factory<F, RA>(
 	mut factory_state: RA,
 	mut config: FactoryFullConfiguration<F>,
+	db: Arc<dyn kvdb::KeyValueDB>,
+	db_settings: client_db::DatabaseSettings,
 ) -> cli::error::Result<()>
 where
 	F: ServiceFactory,
@@ -112,7 +114,7 @@ where
 		return Err(cli::error::Error::Input(msg));
 	}
 
-	let client = new_client::<F>(&config)?;
+	let client = new_client::<F>(db, db_settings, &config)?;
 
 	let select_chain = F::build_select_chain(&mut config, client.clone())?;
 

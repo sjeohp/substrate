@@ -13,6 +13,8 @@ codec = { package = "parity-scale-codec", version = "1.0.0", default-features = 
 primitives = { package = "substrate-primitives", path = "../../core/primitives", default-features = false }
 sr-primitives = { path = "../../core/sr-primitives", default-features = false }
 substrate-service = { path = "../../core/service" }
+kvdb = { git = "https://github.com/paritytech/parity-common", rev="953c757737a689c8210055160048cf36661a6347" }
+client_db = { package = "substrate-client-db", path = "../../core/client/db" }
 
 [features]
 default = ["std"]

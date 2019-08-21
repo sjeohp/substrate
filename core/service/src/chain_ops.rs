@@ -16,6 +16,7 @@
 
 //! Chain utilities.
 
+use std::sync::Arc;
 use std::{self, io::{Read, Write, Seek}};
 use futures::prelude::*;
 use futures03::TryFutureExt as _;
@@ -35,6 +36,8 @@ use crate::chain_spec::ChainSpec;
 
 /// Export a range of blocks to a binary stream.
 pub fn export_blocks<F, E, W>(
+	db: Arc<dyn kvdb::KeyValueDB>,
+	db_settings: client_db::DatabaseSettings,
 	config: FactoryFullConfiguration<F>,
 	exit: E,
 	mut output: W,
@@ -47,7 +50,7 @@ pub fn export_blocks<F, E, W>(
 	E: Future<Item=(),Error=()> + Send + 'static,
 	W: Write,
 {
-	let client = new_client::<F>(&config)?;
+	let client = new_client::<F>(db, db_settings, &config)?;
 	let mut block = from;
 
 	let last = match to {
@@ -134,13 +137,15 @@ impl<B: Block> Link<B> for WaitLink {
 
 /// Returns a future that import blocks from a binary stream.
 pub fn import_blocks<F, E, R>(
+	db: Arc<dyn kvdb::KeyValueDB>,
+	db_settings: client_db::DatabaseSettings,
 	mut config: FactoryFullConfiguration<F>,
 	exit: E,
 	input: R
 ) -> error::Result<impl Future<Item = (), Error = ()>>
 	where F: ServiceFactory, E: Future<Item=(),Error=()> + Send + 'static, R: Read + Seek,
 {
-	let client = new_client::<F>(&config)?;
+	let client = new_client::<F>(db, db_settings, &config)?;
 	// FIXME #1134 this shouldn't need a mutable config.
 	let select_chain = components::FullComponents::<F>::build_select_chain(&mut config, client.clone())?;
 	let (mut queue, _) = components::FullComponents::<F>::build_import_queue(
@@ -236,12 +241,14 @@ pub fn import_blocks<F, E, R>(
 
 /// Revert the chain.
 pub fn revert_chain<F>(
+	db: Arc<dyn kvdb::KeyValueDB>,
+	db_settings: client_db::DatabaseSettings,
 	config: FactoryFullConfiguration<F>,
 	blocks: FactoryBlockNumber<F>
 ) -> error::Result<()>
 	where F: ServiceFactory,
 {
-	let client = new_client::<F>(&config)?;
+	let client = new_client::<F>(db, db_settings, &config)?;
 	let reverted = client.revert(blocks)?;
 	let info = client.info().chain;
 

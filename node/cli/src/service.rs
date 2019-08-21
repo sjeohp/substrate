@@ -107,7 +107,12 @@ construct_service_factory! {
 		Genesis = GenesisConfig,
 		Configuration = NodeConfig<Self>,
 		FullService = FullComponents<Self> {
-			|config: FactoryFullConfiguration<Self>| FullComponents::<Factory>::new(config)
+			|
+                            db: Arc<dyn kvdb::KeyValueDB>, 
+                            db_settings: client_db::DatabaseSettings,
+                            config: FactoryFullConfiguration<Self>| { 
+                                FullComponents::<Factory>::new(db, db_settings, config) 
+                            }
 		},
 		AuthoritySetup = {
 			|mut service: Self::FullService| {
@@ -208,7 +213,14 @@ construct_service_factory! {
 			}
 		},
 		LightService = LightComponents<Self>
-			{ |config| <LightComponents<Factory>>::new(config) },
+			{ 
+                            |
+                                db: Arc<dyn kvdb::KeyValueDB>, 
+                                db_settings: client_db::DatabaseSettings, 
+                                config: FactoryFullConfiguration<Self> | { 
+                                    <LightComponents<Factory>>::new(db, db_settings, config) 
+                                }
+		},
 		FullImportQueue = BabeImportQueue<Self::Block>
 			{
 				|
